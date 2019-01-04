@@ -4,11 +4,12 @@ const Bourrifier = require('./src/bourrifier');
 const log = require('electron-log');
 log.transports.file.level = 'info';
 
-let cons_k = 'QmUV1jjv3ZGjzztTgA6Chyedn';
-let cons_s = 'Lxt92SvAniU0SA6UZgV6sMgqRIOww9mmNYqMWrONcv2yNAlYwo';
-
-const access_token = "1077337327-NsuImVyBvJVXOPH3WYePVmESDYPALeKdN4ncMYT";
-const access_token_secret = "xsjOqkxBfY0HPX4Ewa5e9HrqluzjczNmDcMOuogbkYRVz";
+const {
+    consumer_token,
+    consumer_secret,
+    access_token,
+    access_token_secret
+} = require('./constants');
 
 const rp = require('request-promise-native');
 
@@ -35,7 +36,7 @@ const rp = require('request-promise-native');
 // TESTS
 const fs = require('fs');
 json_tweets = JSON.parse(fs.readFileSync('example.json'));
-let twitter = new Twitter(cons_k, cons_s, access_token, access_token_secret);
+let twitter = new Twitter(consumer_token, consumer_secret, access_token, access_token_secret);
 
 function analyseListAndSendTweet() {
     twitter.getList(0).then(function (res) {

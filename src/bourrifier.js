@@ -40,7 +40,7 @@ const RAND_LIMIT_LETTER = 160 * PERCENTAGE;
 const RAND_LIMIT_RANCHAR = (92 * PERCENTAGE) + 750;
 const RAND_LIMIT_ADDING = randomInt(2100, 4800);
 
-const BOT_USER_DIR = "./";
+const BOT_USER_DIR = require('../constants').bot_user_dir;
 
 const log = require('electron-log');
 log.transports.file.level = 'info';
