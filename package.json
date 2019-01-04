@@ -1,0 +1,22 @@
+{
+  "name": "twitter-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "electron-log": "^2.2.17",
+    "log": "^3.2.0",
+    "mime": "^2.4.0",
+    "mime-types": "^2.1.21",
+    "oauth-1.0a": "^2.2.5",
+    "request": "^2.88.0",
+    "request-promise": "^4.2.2",
+    "request-promise-native": "^1.0.5",
+    "twitter-stream-api": "^0.5.2"
+  }
+}
