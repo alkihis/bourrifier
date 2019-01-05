@@ -128,46 +128,58 @@ module.exports = class Bourrifier {
         }
 
         // Tweets choisis:
-        log.info("Tweets utilisés: " + used_tweets.join(' '));
+        log.debug("Tweets utilisés: " + used_tweets.join(' '));
 
         this.used_tweets = used_tweets.map(index => this.original_tweets[index]);
 
         return used_tweets.map(index => this.original_tweets[index]);
     }
 
+    static deleteMentions(text) {
+        // Supprime les @ trouvés en début du tweet précisé. Si le tweet devient vide, retourne null.
+        let new_tweet = text;
+        if (text.match(/^(@\w+ ){1,}/)) {
+            new_tweet = text.replace(/^(@\w+ ){1,} */, '');
+
+            log.debug("Mention(s) supprimée(s); Tweet initial: " + text + "; Tweet sans mention(s): " + new_tweet);
+
+            if (new_tweet === "") { // Si le tweet devient vide si on lui enlève les @ qu'il contient au début
+                return "null";
+            }
+        }
+
+        return new_tweet;
+    }
+
     buildCombinaison(tweets, poss = []) {
+        function getString(element) {
+            if (element.constructor === String) {
+                return element;
+            }
+
+            if (element.retweeted_status) {
+                // Suppression des mentions du texte de RT
+                return Bourrifier.deleteMentions(element.retweeted_status.full_text);
+            }
+            else {
+                return Bourrifier.deleteMentions(element.full_text);
+            }
+        }
+
         if (tweets.length === 0) {
             throw "Array cannot be empty";
         }
 
-        let first_string;
-        if (tweets[0].constructor === String) {
-            first_string = tweets[0];
-        }
-        else {
-            if (tweets[0].retweeted_status)
-                first_string = tweets[0].retweeted_status.full_text;
-            else
-                first_string = tweets[0].full_text;
-        }
-
-        let second_string;
+        let first_string = getString(tweets[0]);
         let current_offset = 1;
+        let second_string;
 
         let offset = 1;
 
         let remaining = tweets.length - 1;
 
         while (remaining) {
-            if (tweets[current_offset].constructor === String) {
-                second_string = tweets[current_offset];
-            }
-            else {
-                if (tweets[current_offset].retweeted_status)
-                    second_string = tweets[current_offset].retweeted_status.full_text;
-                else
-                    second_string = tweets[current_offset].full_text;
-            }
+            second_string = getString(tweets[current_offset]);
 
             remaining--;
             current_offset++;
@@ -504,6 +516,26 @@ module.exports = class Bourrifier {
         return char;
     }
 
+    static decodeHTML(text) {
+        var entities = [
+            ['amp', '&'],
+            ['apos', '\''],
+            ['#x27', '\''],
+            ['#x2F', '/'],
+            ['#39', '\''],
+            ['#47', '/'],
+            ['lt', '<'],
+            ['gt', '>'],
+            ['nbsp', ' '],
+            ['quot', '"']
+        ];
+    
+        for (var i = 0, max = entities.length; i < max; ++i) 
+            text = text.replace(new RegExp('&'+entities[i][0]+';', 'g'), entities[i][1]);
+    
+        return text;
+    }
+
     replaceLetters(word) {
         let tabLettre = {
             'e': ['e', 'r', 's', 'd'],
@@ -515,7 +547,7 @@ module.exports = class Bourrifier {
     
         for (const [letter, replacements] in Object.entries(tabLettre)) {
             word = word.replace(new RegExp(letter, 'ig'), (corresp, decalage, m0) => {
-                if (randomInt(1, 32768) < RAND_LIMIT_LETTER) {
+                if (randomInt(1, 32768) < RAND_LIMIT_LETTER && replacements) { // TODO replacements undefined
                     let letter = randomInt(0, replacements.length - 1);
 
                     if (ctype_upper(m0)) { // mat[0] correspond à l'entière chaîne capturée. L'expression rationnelle ne précisant qu'un caractère, mat[0] n'est qu'un simple caractère égal à $let.
@@ -525,6 +557,10 @@ module.exports = class Bourrifier {
                         return replacements[letter];
                     }
                 }
+                else if (!replacements || !replacements.length) {
+                    log.error("Replacement est indéfini: [" + String(index) + ", " + typeof replacements + "]");
+                }
+
                 return m0;
             });
         }
@@ -622,7 +658,7 @@ module.exports = class Bourrifier {
             return null;
         }
 
-        const path = BOT_USER_DIR + `${tweet_id_str}.json`;
+        const path = BOT_USER_DIR + `${id_str}.json`;
 
         if (fs.existsSync(path)) {
             const tweets = JSON.parse(fs.readFileSync(path, {flag: 'r'}));
@@ -662,11 +698,96 @@ module.exports = class Bourrifier {
                 }
             }
 
-            str += "Log: https://www.alkihis.fr/get_sourced_log.php?tweet_id=" + id_str + "\n";
+            str += "Log: https://alkihis.fr/get_sourced_log.php?tweet_id=" + id_str + "\n";
 
             return str;
         }
 
         return null;
+    }
+
+    static isTweetToSourced(text) {
+        return text.match(/^(source|contexte?) ?\?*$/i) !== null;
+    }
+
+    static isTweetToDab(text) {
+        return text.match(/^\*.*dab.*\* ?\?*$/i) !== null;
+    }
+    
+    static isTweetToAcab(text) {
+        return text.match(/^acab$/i) !== null;
+    }
+
+    static isTweetToDelete(text, screen_name, status_id_str, user_id_str) {
+        if (text.trim().match(/^supprime\.*$/i)) {
+            for (const user of AUTHORIZED) {
+                if (user.match(screen_name)) {
+                    return true;
+                }
+            }
+    
+            if (status_id_str && user_id_str) {
+                if (this.inUsedTweets(user_id_str, status_id_str)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    addWordOnBeginning(text) {
+        let adding = '';
+        // Ajoute possiblement un mot au début du tweet
+        if (randomInt(0, 32768) < RAND_LIMIT_ADDING) {
+            adding = this.interestingWordIn(text); // Recherche un mot à mettre
+
+            let punc = '';
+            if(randomInt(0, 1) == 1){
+                punc = '!';
+            }
+            else {
+                punc = '?';
+            }
+            adding += ' ' + this.makePunctuation(punc); // Ajoute une ponctuation avec le mot intéressant
+        }
+
+        return adding;
+    }
+
+    interestingWordIn(text) {
+        const NOT_INTERESTING = ['de', 'un', 'une', 'des', 'ça', 'ce', 'le', 'la', 'les', 'du', 'se', 'ses', 'ces',
+                'je', 'suis', 'est', 'es', 'ai', 'ait', 'tu', 'il', 'elle',
+                'iel', 'ils', 'elles', 'ont', 'sont', 'et'];
+
+        // Split le tweets en mots (tableau)
+        let mots = text.split(' ');
+
+        let alea = 0;
+        let tries = 0;
+        let will_continue = true;
+
+        do {
+            alea = randomInt(0, mots.length-1);
+            tries++;
+
+            if (mots[alea] === '') {
+                continue;
+            }
+
+            for (const word in NOT_INTERESTING) {
+                if (!word.match(new RegExp(mots[alea], 'i'))) {
+                    will_continue = false;
+                    break;
+                }
+            }
+        } while (will_continue && tries < 20);
+
+        if (tries >= 20){
+            return null;
+        }
+        else {
+            return mots[alea];
+        }
     }
 }

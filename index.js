@@ -35,7 +35,7 @@ const rp = require('request-promise-native');
 
 // TESTS
 const fs = require('fs');
-json_tweets = JSON.parse(fs.readFileSync('example.json'));
+
 let twitter = new Twitter(consumer_token, consumer_secret, access_token, access_token_secret);
 
 function analyseListAndSendTweet() {
@@ -67,7 +67,7 @@ async function sendNewBourrifedTweet(json_tweets) {
         if (final_tweet.length <= 280) {
             // Envoyer le tweet
             try {
-                const tweet = await twitter.sendTweet(final_tweet, {in_reply_to_status_id: '1081278753953775616'});
+                const tweet = await twitter.sendTweet(Bourrifier.decodeHTML(final_tweet), {in_reply_to_status_id: '1081278753953775616'});
 
                 bourrifier.saveLog(JSON.parse(tweet));
     

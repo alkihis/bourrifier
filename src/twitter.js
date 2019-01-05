@@ -159,7 +159,7 @@ module.exports = class Twitter {
                 command: "INIT",
                 total_bytes: size,
                 media_type: mime.lookup(path) // Définition du MIME type
-            }
+            };
 
             // Si le mime type dit que c'est une vidéo, définit le media_category pour permettre les vidéos longues
             if (args.media_type.split('/')[0] === 'video') {
