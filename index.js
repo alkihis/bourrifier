@@ -67,7 +67,7 @@ async function sendNewBourrifedTweet(json_tweets) {
         if (final_tweet.length <= 280) {
             // Envoyer le tweet
             try {
-                const tweet = await twitter.sendTweet(Bourrifier.decodeHTML(final_tweet), {in_reply_to_status_id: '1081278753953775616'});
+                const tweet = await twitter.sendTweet(Bourrifier.decodeHTML(final_tweet));
 
                 bourrifier.saveLog(JSON.parse(tweet));
     

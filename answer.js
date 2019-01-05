@@ -24,8 +24,7 @@ function randomInt(min, max) {
 
 function saveSettings(settings) {
     const fs = require('fs');
-
-    fs.writeFileSync(JSON.stringify(settings));
+    fs.writeFileSync('./settings.json', JSON.stringify(settings));
 }
 
 ///// FIN DE L'INITIALISATION
