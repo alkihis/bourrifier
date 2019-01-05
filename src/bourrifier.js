@@ -195,6 +195,8 @@ module.exports = class Bourrifier {
             first_string = this.combineTweets(f_array, s_array, pos1, pos2, poss);
         }
 
+        log.debug("Positions: ", poss);
+
         this.fusion_positions = poss;
 
         return first_string;
