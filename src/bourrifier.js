@@ -724,8 +724,10 @@ module.exports = class Bourrifier {
 
     static isTweetToDelete(text, screen_name, status_id_str, user_id_str) {
         if (text.trim().match(/^supprime\.*$/i)) {
+            log.debug("Le tweet a matché la suppression");
+
             for (const user of AUTHORIZED) {
-                if (user.match(screen_name)) {
+                if (user.match(new RegExp(screen_name, 'i'))) {
                     return true;
                 }
             }
