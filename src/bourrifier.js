@@ -718,6 +718,10 @@ module.exports = class Bourrifier {
         return text.match(/^acab$/i) !== null;
     }
 
+    static isTweetToMichelBaie(text) {
+        return text.match(/^Mich( ?mich)*(el)? baie/i) !== null;
+    }
+
     static isTweetToDelete(text, screen_name, status_id_str, user_id_str) {
         if (text.trim().match(/^supprime\.*$/i)) {
             for (const user of AUTHORIZED) {

@@ -8,11 +8,25 @@ const {
     consumer_token,
     consumer_secret,
     access_token,
-    access_token_secret
+    access_token_secret,
+    bot_user_dir,
+    img_user_dir
 } = require('./constants');
 
 const rp = require('request-promise-native');
 const TwitterStream = require('twitter-stream-api');
+
+function randomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function saveSettings(settings) {
+    const fs = require('fs');
+
+    fs.writeFileSync(JSON.stringify(settings));
+}
 
 ///// FIN DE L'INITIALISATION
 
@@ -22,6 +36,7 @@ let twitter = new Twitter(consumer_token, consumer_secret, access_token, access_
 
 let tries = 5;
 let time_last_try = Date.now();
+let settings = JSON.parse(fs.readFileSync('./settings.json'));
 
 async function listenStreamAndAnswer() {
     tries--;
@@ -81,7 +96,7 @@ async function listenStreamAndAnswer() {
     });
 
     twitter_stream.on('connection error stall', function () {
-        log.info("Un stall twitter a été reçu. Le stream continue malgré tout.");
+        log.debug("Un stall twitter a été reçu. Le stream continue malgré tout.");
     });
 
     twitter_stream.on('connection rate limit', function (httpStatusCode) {
@@ -100,6 +115,10 @@ async function listenStreamAndAnswer() {
     twitter_stream.on('data', async function (obj) {
         // Si on reçoit bien un tweet
         if (obj.text && obj.in_reply_to_screen_name && obj.in_reply_to_screen_name === credentials.screen_name) {
+            // Sauvegarde de l'ID str du tweet
+            settings.last_id_str = obj.id_str;
+            saveSettings(settings);
+
             obj.full_text = obj.text;
 
             const regex = new RegExp(/^((@\w+ ){1,})(.*)/);
@@ -111,6 +130,8 @@ async function listenStreamAndAnswer() {
             
             // Récupère le texte du tweet sans mentions
             let text_from_tweet = (matches.length > 3 ? matches[3] : obj.full_text);
+
+            log.info("Mention reçue: " + Bourrifier.decodeHTML(text_from_tweet));
 
             // Si le bot est mentionné correctement, il peut commencer à analyser le tweet pour y répondre
             if (is_not_badly_mentionned) {
@@ -125,21 +146,59 @@ async function listenStreamAndAnswer() {
     
                     try {
                         // Tente d'envoyer le tweet
-                        const tweet = await twitter.replyTo(obj.id_str, Bourrifier.decodeHTML(text_to_send));
-        
-                        // Sauvegarde le tweet sur le disque
-                        bourrifier.saveLog(JSON.parse(tweet));
-            
-                        sended_tweet = true;
+                        await twitter.replyTo(obj.id_str, Bourrifier.decodeHTML(text_to_send));
                     } catch (e) {
                         log.error("Impossible d'envoyer les sources: " + String(e));
                     }  
                 }
                 else if (Bourrifier.isTweetToDab(text_from_tweet)) {
-                    log.info("Tweet to dab. Aucun traitement disponible pour le moment");
+                    log.debug("Tweet to dab demandé.");
+                    try {
+                        // Sélection d'une photo aléatoirement
+                        let path;
+                        const glob = require('glob');
+                        let files = [...glob.sync(img_user_dir + '*.jpg'), ...glob.sync(img_user_dir + '*.png')];
+
+                        if (files.length > 0) {
+                            const choosen_file = files[randomInt(0, files.length - 1)];
+
+                            // Envoi de la photo
+                            const media_id = await twitter.sendMedia(choosen_file);
+    
+                            // Tente d'envoyer le tweet
+                            await twitter.replyTo(obj.id_str, "", {media_ids: media_id});
+                        }
+                        else {
+                            log.debug("Aucun fichier de dab trouvé.");
+                        }
+                    } catch (e) {
+                        log.debug("Impossible d'envoyer le tweet dab. " + String(e));
+                    }
                 }
                 else if (Bourrifier.isTweetToAcab(text_from_tweet)) {
-                    log.info("Tweet to acab. Aucun traitement disponible pour le moment");
+                    log.debug("Tweet to acab demandé.");
+                    try {
+                        // Envoi de la photo
+                        const media_id = await twitter.sendMedia(img_user_dir + "01.acab_jpg");
+
+                        // Tente d'envoyer le tweet
+                        await twitter.replyTo(obj.id_str, "", {media_ids: media_id});
+                    } catch (e) {
+                        log.debug("Impossible d'envoyer le tweet michel baie. " + String(e));
+                    }
+                }
+                else if (Bourrifier.isTweetToMichelBaie(text_from_tweet)) {
+                    log.debug("Tweet michel baie demandé.");
+                    // Post de la vidéo de michel baie
+                    try {
+                        // Envoi de la vidéo
+                        const media_id = await twitter.sendChunkedMedia(img_user_dir + "michel.mp4");
+
+                        // Tente d'envoyer le tweet
+                        await twitter.replyTo(obj.id_str, "", {media_ids: media_id});
+                    } catch (e) {
+                        log.debug("Impossible d'envoyer le tweet michel baie. " + String(e));
+                    }
                 }
                 else if (obj.in_reply_to_screen_name === credentials.screen_name && 
                     Bourrifier.isTweetToDelete(text_from_tweet, obj.user.screen_name, obj.in_reply_to_status_id_str, obj.user.id_str)) { 
@@ -151,6 +210,8 @@ async function listenStreamAndAnswer() {
                 }
                 else {
                     // On répond à l'user avec ses propres tweets
+                    log.silly("Récupération des tweets de @" + obj.user.screen_name + ".");
+
                     let tweets;
                     try {
                         tweets = JSON.parse(await twitter.getUserTimeline(obj.user.id_str));
@@ -213,5 +274,5 @@ async function listenStreamAndAnswer() {
     });
 }
 
-console.log("Bienvenue ! Initialisation du bot de réponse bourrée.");
+log.silly("Bienvenue ! Initialisation du bot de réponse bourrée.");
 listenStreamAndAnswer();

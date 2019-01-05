@@ -112,7 +112,7 @@ module.exports = class Twitter {
     getUserTimeline(id_str, count = 100) {
         return this.make_request('https://api.twitter.com/1.1/statuses/user_timeline.json', 'GET', {
             user_id: id_str,
-            count,
+            count: String(count),
             exclude_replies: false,
             tweet_mode: 'extended'
         });
@@ -162,7 +162,7 @@ module.exports = class Twitter {
             };
 
             // Si le mime type dit que c'est une vidéo, définit le media_category pour permettre les vidéos longues
-            if (args.media_type.split('/')[0] === 'video') {
+            if (args.media_type && args.media_type.split('/')[0] === 'video') {
                 args.media_category = 'tweet_video';
             }
 
@@ -215,7 +215,7 @@ module.exports = class Twitter {
                     }
 
                     i++;
-                    log.info(`MEDIA ID [${MEDIA_ID}] : Partie ` + i + ' sur ' + nb_part + ' envoyée(s).');
+                    log.debug(`MEDIA ID [${MEDIA_ID}] : Partie ` + i + ' sur ' + nb_part + ' envoyée(s).');
                 }
             }
 
@@ -262,7 +262,7 @@ module.exports = class Twitter {
                         throw {error:6, message:"Cant check file state"};
                     }
 
-                    log.info(`MEDIA ID [${MEDIA_ID}] : ` + 'Traité à ' + final_request.processing_info.progress_percent);
+                    log.debug(`MEDIA ID [${MEDIA_ID}] : ` + 'Traité à ' + final_request.processing_info.progress_percent + "%");
 
                     // Si c'est succeeded, on peut s'arrêter là !
                     if (final_request.processing_info.state === 'succeeded') {
