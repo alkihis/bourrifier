@@ -8,33 +8,30 @@ const {
     consumer_token,
     consumer_secret,
     access_token,
-    access_token_secret
+    access_token_secret,
+    bot_user_dir
 } = require('./constants');
 
 const rp = require('request-promise-native');
 
 ///// FIN DE L'INITIALISATION
+// NETTOYAGE DES VIEILLES SOURCES
 
-// twitter.sendTweet('Coucou, ne fais pas attention à moi', {in_reply_to_status_id: '1080881608117403649'})
-
-// twitter.sendChunkedMedia('./jfc.mp4').then(function(media_id) {
-//     console.log(media_id);
-
-//     if (media_id) {
-//         twitter.sendTweet('Nouvelle réponse en vidéo', {in_reply_to_status_id: '1080881608117403649', media_ids: media_id})
-//     }
-// });
-
-// twitter.sendMedia('./test.jpg').then(function(media_id) {
-//     console.log(media_id);
-
-//     if (media_id) {
-//         // twitter.sendTweet('Nouvelle réponse en vidéo', {in_reply_to_status_id: '1080881608117403649', media_ids: media_id})
-//     }
-// });
-
-// TESTS
 const fs = require('fs');
+const glob = require('glob');
+
+let files_of_dir = glob.sync(bot_user_dir + '*.json');
+const current_timestamp = Date.now();
+const one_week = 60*60*24*7;
+
+for (const f of files_of_dir) {
+    if (fs.statSync(f).mtime < (current_timestamp - one_week)) {
+        fs.unlink(f);
+    }
+}
+
+// FIN NETTOYAGE
+// DEBUT DU SCRIPT
 
 let twitter = new Twitter(consumer_token, consumer_secret, access_token, access_token_secret);
 
