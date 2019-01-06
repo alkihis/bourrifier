@@ -24,7 +24,7 @@ function randomInt(min, max) {
 
 function saveSettings(settings) {
     const fs = require('fs');
-    fs.writeFileSync('./settings.json', JSON.stringify(settings));
+    fs.writeFileSync('./saves/settings.json', JSON.stringify(settings));
 }
 
 ///// FIN DE L'INITIALISATION
@@ -35,7 +35,7 @@ let twitter = new Twitter(consumer_token, consumer_secret, access_token, access_
 
 let tries = 5;
 let time_last_try = Date.now();
-let settings = JSON.parse(fs.readFileSync('./settings.json'));
+let settings = JSON.parse(fs.readFileSync('./saves/settings.json'));
 
 async function listenStreamAndAnswer() {
     tries--;
@@ -199,13 +199,27 @@ async function listenStreamAndAnswer() {
                         log.debug("Impossible d'envoyer le tweet michel baie. " + String(e));
                     }
                 }
-                else if (obj.in_reply_to_screen_name === credentials.screen_name && 
-                    Bourrifier.isTweetToDelete(text_from_tweet, obj.user.screen_name, obj.in_reply_to_status_id_str, obj.user.id_str)) { 
-                    
-                    log.debug("Tweet à supprimer : " + obj.in_reply_to_status_id_str);
-                    // Le Tweet doit être supprimé et l'utilisateur le demandant est autorisé
-                    // Vérifie que le tweet à supprimer lui appartient
-                    twitter.deleteTweet(obj.in_reply_to_status_id_str);
+                else if (obj.in_reply_to_screen_name === credentials.screen_name && Bourrifier.isTweetToDelete(text_from_tweet)) { 
+                    if (Bourrifier.canDeleteTweet(obj.user.screen_name, obj.in_reply_to_status_id_str, obj.user.id_str)) {
+                        log.debug("Tweet à supprimer : " + obj.in_reply_to_status_id_str);
+                        
+                        // Le Tweet doit être supprimé et l'utilisateur le demandant est autorisé
+                        // Vérifie que le tweet à supprimer lui appartient
+                        try {
+                            await twitter.deleteTweet(obj.in_reply_to_status_id_str);
+                            log.info("Tweet ID " + obj.in_reply_to_status_id_str + " supprimé.");
+                        } catch (e) {
+                            log.error("Impossible de supprimer le tweet " + obj.in_reply_to_status_id_str);
+                        }
+                    }
+                    else {
+                        try {
+                            // Tente d'envoyer le tweet
+                            await twitter.replyTo(obj.id_str, "Vous n'êtes pas autorisé à supprimer ce tweet.");
+                        } catch (e) {
+                            log.debug("Impossible d'envoyer le tweet d'erreur. " + String(e));
+                        }
+                    }
                 }
                 else {
                     // On répond à l'user avec ses propres tweets

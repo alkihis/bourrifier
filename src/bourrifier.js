@@ -721,20 +721,20 @@ module.exports = class Bourrifier {
         return text.match(/^Mich( ?mich)*(el)? baie/i) !== null;
     }
 
-    static isTweetToDelete(text, screen_name, status_id_str, user_id_str) {
-        if (text.trim().match(/^supprime\.*$/i)) {
-            log.debug("Le tweet a matché la suppression");
+    static isTweetToDelete(text) {
+        return text.trim().match(/^supprime\.*$/i) !== null;
+    }
 
-            for (const user of AUTHORIZED) {
-                if (user.match(new RegExp(screen_name, 'i'))) {
-                    return true;
-                }
+    static canDeleteTweet(screen_name, status_id_str, user_id_str) {
+        for (const user of AUTHORIZED) {
+            if (user.match(new RegExp(screen_name, 'i'))) {
+                return true;
             }
-    
-            if (status_id_str && user_id_str) {
-                if (this.inUsedTweets(user_id_str, status_id_str)) {
-                    return true;
-                }
+        }
+
+        if (status_id_str && user_id_str) {
+            if (this.inUsedTweets(user_id_str, status_id_str)) {
+                return true;
             }
         }
 
