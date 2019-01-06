@@ -560,7 +560,7 @@ module.exports = class Bourrifier {
                     }
                 }
                 else if (!replacements || !replacements.length) {
-                    log.error("Replacement est indéfini: [" + String(index) + ", " + typeof replacements + "]");
+                    log.error("Replacement est indéfini: [" + String(letter) + ", " + typeof replacements + "]");
                 }
 
                 return m0;
