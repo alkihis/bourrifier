@@ -363,7 +363,7 @@ module.exports = class Bourrifier {
     addInsult(word) {
         // Traitement des virgules et points en bout de mot
         if (word.match(/(.+)(,|\.)(.*)/u)) {
-            word = word.replace(/(.+)(,|\.)(.*)/u, (corresp, m1, m2, m3, decalage, m0) => {
+            word = word.replace(/(.+)(,|\.)(.*)/u, (m0, m1, m2, m3, decalage, complete) => {
                 if (randomInt(1, 32768) < RAND_LIMIT_INSULTE) {
                     let pos_insult = randomInt(0, INSULTS.length - 1);
 
@@ -547,23 +547,20 @@ module.exports = class Bourrifier {
             'n': ['n', 'b', 'j', 'h'],
         };
     
-        for (const [letter, replacements] in Object.entries(tabLettre)) {
+        for (const [letter, replacements] of Object.entries(tabLettre)) {
             word = word.replace(new RegExp(letter, 'ig'), (corresp, decalage, m0) => {
-                if (randomInt(1, 32768) < RAND_LIMIT_LETTER && replacements) { // TODO replacements undefined
-                    let letter = randomInt(0, replacements.length - 1);
+                if (randomInt(1, 32768) < RAND_LIMIT_LETTER) {
+                    let lete = randomInt(0, replacements.length - 1);
 
-                    if (ctype_upper(m0)) { // mat[0] correspond à l'entière chaîne capturée. L'expression rationnelle ne précisant qu'un caractère, mat[0] n'est qu'un simple caractère égal à $let.
-                        return replacements[letter].toLocaleUpperCase();
+                    if (ctype_upper(corresp)) { // mat[0] correspond à l'entière chaîne capturée. L'expression rationnelle ne précisant qu'un caractère, mat[0] n'est qu'un simple caractère égal à $let.
+                        return replacements[lete].toLocaleUpperCase();
                     }
                     else {
-                        return replacements[letter];
+                        return replacements[lete];
                     }
                 }
-                else if (!replacements || !replacements.length) {
-                    log.error("Replacement est indéfini: [" + String(letter) + ", " + typeof replacements + "]");
-                }
 
-                return m0;
+                return corresp;
             });
         }
 
