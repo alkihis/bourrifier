@@ -35,7 +35,11 @@ let twitter = new Twitter(consumer_token, consumer_secret, access_token, access_
 
 let tries = 5;
 let time_last_try = Date.now();
-let settings = JSON.parse(fs.readFileSync('./saves/settings.json'));
+let settings = {};
+
+if (fs.existsSync('./saves/settings.json')) {
+    settings = JSON.parse(fs.readFileSync('./saves/settings.json'));
+}
 
 async function listenStreamAndAnswer() {
     tries--;
@@ -202,7 +206,7 @@ async function listenStreamAndAnswer() {
                 else if (obj.in_reply_to_screen_name === credentials.screen_name && Bourrifier.isTweetToDelete(text_from_tweet)) { 
                     if (Bourrifier.canDeleteTweet(obj.user.screen_name, obj.in_reply_to_status_id_str, obj.user.id_str)) {
                         log.debug("Tweet à supprimer : " + obj.in_reply_to_status_id_str);
-                        
+
                         // Le Tweet doit être supprimé et l'utilisateur le demandant est autorisé
                         // Vérifie que le tweet à supprimer lui appartient
                         try {
