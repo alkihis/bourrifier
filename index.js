@@ -26,7 +26,8 @@ const one_week = 60*60*24*7;
 
 for (const f of files_of_dir) {
     if (fs.statSync(f).mtime < (current_timestamp - one_week)) {
-        fs.unlink(f, () => {});
+        log.warn("Date du fichier: ", fs.statSync(f).mtime, current_timestamp - one_week);
+	// fs.unlink(f, () => {});
     }
 }
 

@@ -42,6 +42,8 @@ if (fs.existsSync('./saves/settings.json')) {
 }
 
 async function listenStreamAndAnswer() {
+    let timeout_id = 0;
+
     tries--;
 
     let twitter_stream = new TwitterStream({
@@ -115,7 +117,27 @@ async function listenStreamAndAnswer() {
         twitter_stream.close();
     });
 
+    twitter_stream.on('data keep-alive', function () {
+        if (timeout_id) {
+            clearTimeout(timeout_id);
+        }
+
+        timeout_id = setTimeout(() => {
+            twitter_stream.close();
+            listenStreamAndAnswer();
+        }, 120*1000);
+    });
+
     twitter_stream.on('data', async function (obj) {
+        if (timeout_id) {
+            clearTimeout(timeout_id);
+        }
+
+        timeout_id = setTimeout(() => {
+            twitter_stream.close();
+            listenStreamAndAnswer();
+        }, 120*1000);
+
         // Si on reçoit bien un tweet
         if (obj.text && obj.in_reply_to_screen_name && obj.in_reply_to_screen_name === credentials.screen_name) {
             // Sauvegarde de l'ID str du tweet
@@ -284,6 +306,9 @@ async function listenStreamAndAnswer() {
                 log.info("Rien à faire avec tweet ID [" + obj.id_str + "]");
             }
         }
+        else {
+            log.warn("Donnée inconnue reçue: ", obj);
+        }
     });
 
     twitter_stream.on('data error', function (error) {
@@ -291,5 +316,7 @@ async function listenStreamAndAnswer() {
     });
 }
 
+log.silly("-----------------------------------------------------");
 log.silly("Bienvenue ! Initialisation du bot de réponse bourrée.");
+log.silly("-----------------------------------------------------");
 listenStreamAndAnswer();
