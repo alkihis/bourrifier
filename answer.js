@@ -36,12 +36,24 @@ let twitter = new Twitter(consumer_token, consumer_secret, access_token, access_
 let tries = 5;
 let time_last_try = Date.now();
 let settings = {};
+let credentials = null;
 
 if (fs.existsSync('./saves/settings.json')) {
     settings = JSON.parse(fs.readFileSync('./saves/settings.json'));
 }
 
 async function listenStreamAndAnswer() {
+    function reinitStream(secondes = 120) {
+        if (timeout_id) {
+            clearTimeout(timeout_id);
+        }
+
+        timeout_id = setTimeout(() => {
+            twitter_stream.close();
+            listenStreamAndAnswer();
+        }, secondes*1000);
+    }
+
     let timeout_id = 0;
 
     tries--;
@@ -54,14 +66,16 @@ async function listenStreamAndAnswer() {
     }, true);
 
     // Récupération du screen_name du bot
-    let credentials;
-    log.silly("Récupération des credentials du bot");
-    try {
-        credentials = JSON.parse(await twitter.getCredentials());
-    } catch (e) {
-        log.error('Impossible de récupérer les credentials: ' + String(e));
-        return;
+    if (!credentials) {
+        log.silly("Récupération des credentials du bot");
+        try {
+            credentials = JSON.parse(await twitter.getCredentials());
+        } catch (e) {
+            log.error('Impossible de récupérer les credentials: ' + String(e));
+            return;
+        }
     }
+    
 
     log.silly("Credentials récupérées, initialisation du stream...");
 
@@ -105,7 +119,10 @@ async function listenStreamAndAnswer() {
     });
 
     twitter_stream.on('connection rate limit', function (httpStatusCode) {
-        log.warn("Un rate limit a été atteint (Code HTTP " + httpStatusCode + ").");
+        log.warn("Un rate limit a été atteint (Code HTTP " + httpStatusCode + "). La connexion sera relancée dans 30 secondes.");
+
+        twitter_stream.close();
+        reinitStream(30);
     });
 
     twitter_stream.on('connection error http', function (httpStatusCode) {
@@ -118,25 +135,11 @@ async function listenStreamAndAnswer() {
     });
 
     twitter_stream.on('data keep-alive', function () {
-        if (timeout_id) {
-            clearTimeout(timeout_id);
-        }
-
-        timeout_id = setTimeout(() => {
-            twitter_stream.close();
-            listenStreamAndAnswer();
-        }, 120*1000);
+        reinitStream();
     });
 
     twitter_stream.on('data', async function (obj) {
-        if (timeout_id) {
-            clearTimeout(timeout_id);
-        }
-
-        timeout_id = setTimeout(() => {
-            twitter_stream.close();
-            listenStreamAndAnswer();
-        }, 120*1000);
+        reinitStream();
 
         // Si on reçoit bien un tweet
         if (obj.text && obj.in_reply_to_screen_name && obj.in_reply_to_screen_name === credentials.screen_name) {
