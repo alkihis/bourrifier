@@ -37,26 +37,14 @@ let tries = 5;
 let time_last_try = Date.now();
 let settings = {};
 let credentials = null;
+let on_reset = false;
 
 if (fs.existsSync('./saves/settings.json')) {
     settings = JSON.parse(fs.readFileSync('./saves/settings.json'));
 }
 
 async function listenStreamAndAnswer() {
-    function reinitStream(secondes = 120) {
-        if (timeout_id) {
-            clearTimeout(timeout_id);
-        }
-
-        timeout_id = setTimeout(() => {
-            twitter_stream.close();
-            listenStreamAndAnswer();
-        }, secondes*1000);
-    }
-
-    let timeout_id = 0;
-
-    tries--;
+    on_reset = false;
 
     let twitter_stream = new TwitterStream({
         consumer_key: consumer_token,
@@ -75,7 +63,6 @@ async function listenStreamAndAnswer() {
             return;
         }
     }
-    
 
     log.silly("Credentials récupérées, initialisation du stream...");
 
@@ -85,24 +72,24 @@ async function listenStreamAndAnswer() {
     });
 
     twitter_stream.on('connection aborted', function () {
-        if (time_last_try < (Date.now() - 60*60*3)) { // Si le dernier essai a plus de trois heures
+        if (time_last_try < (Date.now() - 60*60*3*1000)) { // Si le dernier essai a plus de trois heures
+            log.warn("Cela fait plus de trois heures depuis le dernier essai. Réessayage.");
             time_last_try = Date.now();
             tries = 5;
         }
 
+        tries--;
+
         if (tries > 0) {
             log.warn("La connexion au stream a été perdue. La connexion va être relancée.");
-            try {
-                twitter_stream.close();
-            } catch (e) {
-                // Impossible de fermer: il est déjà fermé
-            }
             
-            listenStreamAndAnswer();
+            if (!on_reset) {
+                on_reset = true;
+                setTimeout(listenStreamAndAnswer, 30*1000);
+            }
         }
         else {
             log.error("La connexion au stream a été perdue. Trop d'échecs ont été rencontrés récemment. Le script se termine ici.");
-            twitter_stream.close();
         }
     });
 
@@ -120,9 +107,6 @@ async function listenStreamAndAnswer() {
 
     twitter_stream.on('connection rate limit', function (httpStatusCode) {
         log.warn("Un rate limit a été atteint (Code HTTP " + httpStatusCode + "). La connexion sera relancée dans 30 secondes.");
-
-        twitter_stream.close();
-        reinitStream(30);
     });
 
     twitter_stream.on('connection error http', function (httpStatusCode) {
@@ -135,12 +119,10 @@ async function listenStreamAndAnswer() {
     });
 
     twitter_stream.on('data keep-alive', function () {
-        reinitStream();
+
     });
 
     twitter_stream.on('data', async function (obj) {
-        reinitStream();
-
         // Si on reçoit bien un tweet
         if (obj.text && obj.in_reply_to_screen_name && obj.in_reply_to_screen_name === credentials.screen_name) {
             // Sauvegarde de l'ID str du tweet
