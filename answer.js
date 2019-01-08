@@ -38,15 +38,33 @@ let time_last_try = Date.now();
 let settings = {};
 let credentials = null;
 let on_reset = false;
+let twitter_stream;
+let timeout_id = 0;
+let manual_reset = false;
 
 if (fs.existsSync('./saves/settings.json')) {
     settings = JSON.parse(fs.readFileSync('./saves/settings.json'));
 }
 
+function resetConnection(sec = 120) {
+    if (timeout_id) {
+        clearTimeout(timeout_id);
+    }
+
+    timeout_id = setTimeout(function() {
+        log.warn("Inactivité : réinitialisation.");
+        manual_reset = true;
+        twitter_stream.close();
+
+        manual_reset = false;
+        setTimeout(listenStreamAndAnswer, 20*1000);
+    }, sec*1000);
+}
+
 async function listenStreamAndAnswer() {
     on_reset = false;
 
-    let twitter_stream = new TwitterStream({
+    twitter_stream = new TwitterStream({
         consumer_key: consumer_token,
         consumer_secret,
         token: access_token,
@@ -72,6 +90,15 @@ async function listenStreamAndAnswer() {
     });
 
     twitter_stream.on('connection aborted', function () {
+        if (timeout_id) {
+            clearTimeout(timeout_id);
+        }
+
+        if (manual_reset) {
+            log.info("Fermeture du stream inactif.");
+            return;
+        }
+
         if (time_last_try < (Date.now() - 60*60*3*1000)) { // Si le dernier essai a plus de trois heures
             log.warn("Cela fait plus de trois heures depuis le dernier essai. Réessayage.");
             time_last_try = Date.now();
@@ -119,10 +146,12 @@ async function listenStreamAndAnswer() {
     });
 
     twitter_stream.on('data keep-alive', function () {
-
+        resetConnection();
     });
 
     twitter_stream.on('data', async function (obj) {
+        resetConnection();
+
         // Si on reçoit bien un tweet
         if (obj.text && obj.in_reply_to_screen_name && obj.in_reply_to_screen_name === credentials.screen_name) {
             // Sauvegarde de l'ID str du tweet
